@@ -16,6 +16,15 @@ include_directories(
 	${FastGlobalRegistration_SOURCE_DIR}/FastGlobalRegistration
 	)
 
+#--------------------
+# DEPENDENCY: PCL
+#--------------------
+find_package(PCL 1.8 REQUIRED)
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+message("-- PCL found, version ${PCL_VERSION}")
+
 # default built type
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release CACHE STRING
@@ -52,7 +61,7 @@ elseif(UNIX)
 	add_compile_options(-Wno-deprecated-declarations)
 	add_compile_options(-Wno-unused-result)
 	# enable c++11
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
 endif(WIN32)
 
 add_subdirectory(FastGlobalRegistration)
