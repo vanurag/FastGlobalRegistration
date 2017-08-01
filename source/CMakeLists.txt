@@ -36,6 +36,10 @@ message("-- PCL found, version ${PCL_VERSION}")
 # ROS
 include_directories(${catkin_INCLUDE_DIRS})
 
+catkin_package(
+	INCLUDE_DIRS ${catkin_INCLUDE_DIRS}
+)
+
 # default built type
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release CACHE STRING

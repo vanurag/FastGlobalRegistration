@@ -4,12 +4,16 @@
 #include <sensor_msgs/PointCloud2.h>
 
 
-class FGRIoHandler
+class FGR
 {
  private:
   ros::NodeHandle nh_, nh_private_;
+  ros::Subscriber subPcl;
 
  public:
+  // FGR app
+  CApp app;
+
   // params
   float div_factor;                 // Division factor used for graduated non-convexity
   bool use_abs_scale;               // Measure distance in absolute scale (1) or in scale relative to the diameter of the model (0)
@@ -32,9 +36,20 @@ class FGRIoHandler
     could_load_params &= nh_private_.getParam("stored_scene_feat", stored_scene_feat);
     return could_load_params;
   }
+
+  // PCL pointcloud callback
+  void meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
+
+  FGR(ros::NodeHandle& nh, ros::NodeHandle& nh_private) {
+    nh_ = nh;
+    nh_private_ = nh_private;
+
+    subPcl = nh.subscribe<sensor_msgs::PointCloud2> ("/itm/pcl", 1, &FGR::meshCallback, this);
+  };
+  ~FGR(void) {};
 };
 
-void meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg, const int max_iter)
+void FGR::meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
 {
   std::cout << "Got a PCL msg!!" << std::endl;
   // generate pcl pointcloud
@@ -42,15 +57,14 @@ void meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg, const int max_i
   // generate normals
 
   // perform FGR
-  app.ReadFeature(argv[2]);
+  app.ReadFeature("bla");
   app.NormalizePoints();
   app.AdvancedMatching();
   app.OptimizePairwise(true, max_iter);
-  app.WriteTrans(argv[3]);
+  app.WriteTrans("blaa");
 }
 
 int main(int argc, char** argv)
-try
 {
   ros::Time::init();
   ros::init(argc, argv, "fgr_node");
@@ -58,27 +72,23 @@ try
   ros::NodeHandle nh_private("~");
   ROS_INFO("Starting fgr_node with node name %s", ros::this_node::getName().c_str());
 
-  // IO Handler
-  FGRIoHandler io_handler(nh, nh_private);
-  if (!io_handler.LoadParameters()) {
+  // FGR
+  FGR fgr(nh, nh_private);
+  if (!fgr.LoadParameters()) {
     std::cout << "failed to load user settings!" << std::endl;
     return -1;
   }
 
   std::cout << "Using run-time params:" << std::endl;
-  std::cout << "DIV_FACTOR: " << io_handler.div_factor << std::endl;
-  std::cout << "USE_ABSOLUTE_SCALE: " << io_handler.use_abs_scale << std::endl;
-  std::cout << "MAX_CORR_DIST: " << io_handler.max_corr_dist << std::endl;
-  std::cout << "ITERATION_NUMBER: " << io_handler.max_iter << std::endl;
-  std::cout << "TUPLE_SCALE: " << io_handler.tuple_scale << std::endl;
-  std::cout << "TUPLE_MAX_CNT: " << io_handler.tuple_max_cnt << std::endl;
-  std::cout << "Scene features file: " << io_handler.stored_scene_feat << std::endl << std::endl;
+  std::cout << "DIV_FACTOR: " << fgr.div_factor << std::endl;
+  std::cout << "USE_ABSOLUTE_SCALE: " << fgr.use_abs_scale << std::endl;
+  std::cout << "MAX_CORR_DIST: " << fgr.max_corr_dist << std::endl;
+  std::cout << "ITERATION_NUMBER: " << fgr.max_iter << std::endl;
+  std::cout << "TUPLE_SCALE: " << fgr.tuple_scale << std::endl;
+  std::cout << "TUPLE_MAX_CNT: " << fgr.tuple_max_cnt << std::endl;
+  std::cout << "Scene features file: " << fgr.stored_scene_feat << std::endl << std::endl;
 
-  CApp app;
-  app.ReadFeature(io_handler.stored_scene_feat); // stored scene features
-
-  ros::Subscriber subPcl = nh.subscribe<sensor_msgs::PointCloud2> ("itm/pcl", 1,
-      boost::bind(meshCallback, _1, io_handler.max_iter) );
+  fgr.app.ReadFeature(fgr.stored_scene_feat.c_str()); // stored scene features
 
   ros::spin();
 
