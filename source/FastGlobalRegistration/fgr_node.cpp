@@ -3,6 +3,15 @@
 #include "app.h"
 #include <sensor_msgs/PointCloud2.h>
 
+// PCL
+#include <pcl/point_types.h>
+#include <pcl/common/common_headers.h>
+#include <pcl/common/transforms.h>
+#include <pcl/io/ply_io.h>
+#include <pcl/impl/point_types.hpp>
+#include <pcl/features/fpfh_omp.h>
+#include <pcl/filters/voxel_grid.h>
+
 
 class FGR
 {
@@ -40,6 +49,10 @@ class FGR
   // PCL pointcloud callback
   void meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
 
+  // generate features for PCL point cloud
+  void generateFeatures(const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud,
+                        pcl::PointCloud<pcl::FPFHSignature33>::Ptr cloud_features);
+
   FGR(ros::NodeHandle& nh, ros::NodeHandle& nh_private) {
     nh_ = nh;
     nh_private_ = nh_private;
@@ -62,6 +75,29 @@ void FGR::meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
   app.AdvancedMatching();
   app.OptimizePairwise(true, max_iter);
   app.WriteTrans("blaa");
+}
+
+void FGR::generateFeatures(const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud,
+                           pcl::PointCloud<pcl::FPFHSignature33>::Ptr cloud_features)
+{
+  // sub-sample the input cloud
+  pcl::PointCloud<pcl::PointNormal>::Ptr cloud_subsample(new pcl::PointCloud<pcl::PointNormal>);
+  cloud_subsample = cloud;
+  std::cerr << "PointCloud before filtering: " << cloud->width * cloud->height
+         << " data points (" << pcl::getFieldsList (*cloud) << ").";
+  // Create the filtering object
+  pcl::VoxelGrid<pcl::PointNormal> sor;
+  sor.setInputCloud(cloud);
+  sor.setLeafSize(0.01f, 0.01f, 0.01f);
+  sor.filter(*cloud_subsample);
+  std::cerr << "PointCloud after filtering: " << cloud_subsample->width * cloud_subsample->height
+       << " data points (" << pcl::getFieldsList (*cloud_subsample) << ").";
+
+  pcl::FPFHEstimationOMP<pcl::PointNormal, pcl::PointNormal, pcl::FPFHSignature33> fest;
+  fest.setRadiusSearch(0.05);
+  fest.setInputCloud(cloud_subsample);
+  fest.setInputNormals(cloud_subsample);
+  fest.compute(*cloud_features);
 }
 
 int main(int argc, char** argv)
