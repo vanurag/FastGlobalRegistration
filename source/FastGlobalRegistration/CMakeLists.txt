@@ -1,5 +1,7 @@
 add_library(FastGlobalRegistrationLib STATIC app.cpp app.h)
 add_executable(FastGlobalRegistration main.cpp)
 add_executable(FeatureGenerator generate_binary.cpp)
+add_executable(FastGlobalRegistrationNode fgr_node.cpp)
 TARGET_LINK_LIBRARIES(FeatureGenerator ${PCL_LIBRARIES})
 TARGET_LINK_LIBRARIES(FastGlobalRegistration FastGlobalRegistrationLib)
+TARGET_LINK_LIBRARIES(FastGlobalRegistrationNode FastGlobalRegistrationLib ${catkin_LIBRARIES})

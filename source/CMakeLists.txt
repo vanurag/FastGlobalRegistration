@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.0.0)
 
-project(FastGlobalRegistration)
+project(fast_global_registration)
+
+find_package(catkin REQUIRED COMPONENTS 
+	           roscpp 
+	           rosbag
+	           roslaunch
+	           std_msgs
+	           cv_bridge
+	           image_transport)
 
 set(FastGlobalRegistration_VERSION_MAJOR "1")
 set(FastGlobalRegistration_VERSION_MINOR "0")
@@ -24,6 +32,9 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 message("-- PCL found, version ${PCL_VERSION}")
+
+# ROS
+include_directories(${catkin_INCLUDE_DIRS})
 
 # default built type
 if(NOT CMAKE_BUILD_TYPE)

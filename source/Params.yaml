@@ -1,0 +1,8 @@
+stored_scene_feat : /home/anurag/GitHub/FastGlobalRegistration/dataset/infinitam_relocalization/wall/new/wall_mesh_with_normals.bin
+
+div_factor : 1.4
+use_abs_scale : true
+max_corr_dist : 0.025
+max_iter : 64
+tuple_scale : 0.95 
+tuple_max_cnt : 1000
