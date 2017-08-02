@@ -48,9 +48,13 @@ typedef vector<VectorXf> Feature;
 
 class CApp{
 public:
-    void LoadFeature(const Points& pts, const Feature& feat);
+  int GetNumPcl();
+  void LoadFeature(const Points& pts, const Feature& feat);
+  void LoadFeature(const Points& pts, const Feature& feat, const int& id);
 	void ReadFeature(const char* filepath);
+  void ReadFeature(const char* filepath, const int& id);
 	void NormalizePoints();
+  void NormalizePoints(const int& id);
 	void AdvancedMatching();
 	void WriteTrans(const char* filepath);
     Matrix4f GetTrans();

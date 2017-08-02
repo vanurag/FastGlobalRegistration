@@ -29,6 +29,10 @@
 
 #include "app.h"
 
+int CApp::GetNumPcl() {
+  return pointcloud_.size();
+}
+
 void CApp::ReadFeature(const char* filepath)
 {
 	Points pts;
@@ -37,10 +41,28 @@ void CApp::ReadFeature(const char* filepath)
 	LoadFeature(pts,feat);
 }
 
+void CApp::ReadFeature(const char* filepath, const int& id)
+{
+  Points pts;
+  Feature feat;
+  ReadFeature(filepath, pts, feat);
+  LoadFeature(pts,feat,id);
+}
+
 void CApp::LoadFeature(const Points& pts, const Feature& feat)
 {
     pointcloud_.push_back(pts);
     features_.push_back(feat);
+}
+
+void CApp::LoadFeature(const Points& pts, const Feature& feat, const int& id)
+{
+    if (id >= features_.size()) {
+      std::cout << "Provided ID is exceeding the vector size!!!" << std::endl;
+      exit(1);
+    }
+    pointcloud_[id] = pts;
+    features_[id] = feat;
 }
 
 void CApp::ReadFeature(const char* filepath, Points& pts, Feature& feat)
@@ -101,6 +123,7 @@ void CApp::AdvancedMatching()
 
 	if (pointcloud_[fj].size() > pointcloud_[fi].size())
 	{
+    std::cout << "swapping!!" << std::endl;
 		int temp = fi;
 		fi = fj;
 		fj = temp;
@@ -380,6 +403,7 @@ void CApp::NormalizePoints()
 		StartScale = 1.0f;
 	}
 	printf("normalize points :: global scale : %f\n", GlobalScale);
+  printf("normalize points :: start scale : %f\n", StartScale);
 
 	for (int i = 0; i < num; ++i)
 	{
@@ -391,6 +415,70 @@ void CApp::NormalizePoints()
 			pointcloud_[i][ii](2) /= GlobalScale;
 		}
 	}
+}
+
+// Normalize scale of points of specified index.
+// X' = (X-\mu)/scale
+void CApp::NormalizePoints(const int& id)
+{
+  if (id >= Means.size()) {
+    std::cout << "Provided ID is exceeding the vector size!!!" << std::endl;
+    exit(1);
+  }
+  float scale = 0;
+  float max_scale = 0;
+
+  // compute mean
+  Vector3f mean;
+  mean.setZero();
+
+  int npti = pointcloud_[id].size();
+  for (int ii = 0; ii < npti; ++ii)
+  {
+    Eigen::Vector3f p(pointcloud_[id][ii](0), pointcloud_[id][ii](1), pointcloud_[id][ii](2));
+    mean = mean + p;
+  }
+  mean = mean / npti;
+  Means[id] = mean;
+
+  printf("normalize points :: mean[%d] = [%f %f %f]\n", id, mean(0), mean(1), mean(2));
+
+  for (int ii = 0; ii < npti; ++ii)
+  {
+    pointcloud_[id][ii](0) -= mean(0);
+    pointcloud_[id][ii](1) -= mean(1);
+    pointcloud_[id][ii](2) -= mean(2);
+  }
+
+  // compute scale
+  for (int ii = 0; ii < npti; ++ii)
+  {
+    Eigen::Vector3f p(pointcloud_[id][ii](0), pointcloud_[id][ii](1), pointcloud_[id][ii](2));
+    float temp = p.norm(); // because we extract mean in the previous stage.
+    if (temp > max_scale)
+      max_scale = temp;
+  }
+
+  if (max_scale > scale)
+    scale = max_scale;
+
+  //// mean of the scale variation
+  if (USE_ABSOLUTE_SCALE) {
+    GlobalScale = 1.0f;
+    if (scale > StartScale) StartScale = scale;
+  } else {
+    if (scale > GlobalScale) GlobalScale = scale; // second choice: we keep the maximum scale.
+    StartScale = 1.0f;
+  }
+  printf("normalize points :: global scale : %f\n", GlobalScale);
+  printf("normalize points :: start scale : %f\n", StartScale);
+
+  for (int ii = 0; ii < npti; ++ii)
+  {
+    pointcloud_[id][ii](0) /= GlobalScale;
+    pointcloud_[id][ii](1) /= GlobalScale;
+    pointcloud_[id][ii](2) /= GlobalScale;
+  }
 }
 
 double CApp::OptimizePairwise(bool decrease_mu_, int numIter_)

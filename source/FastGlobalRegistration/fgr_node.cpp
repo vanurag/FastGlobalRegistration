@@ -4,6 +4,7 @@
 #include <sensor_msgs/PointCloud2.h>
 
 // PCL
+#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_types.h>
 #include <pcl/common/common_headers.h>
 #include <pcl/common/transforms.h>
@@ -11,6 +12,7 @@
 #include <pcl/impl/point_types.hpp>
 #include <pcl/features/fpfh_omp.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/conversions.h>
 
 
 class FGR
@@ -51,7 +53,7 @@ class FGR
 
   // generate features for PCL point cloud
   void generateFeatures(const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud,
-                        pcl::PointCloud<pcl::FPFHSignature33>::Ptr cloud_features);
+                        Points &cloud_points, Feature &cloud_features);
 
   FGR(ros::NodeHandle& nh, ros::NodeHandle& nh_private) {
     nh_ = nh;
@@ -66,19 +68,35 @@ void FGR::meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
 {
   std::cout << "Got a PCL msg!!" << std::endl;
   // generate pcl pointcloud
+  pcl::PCLPointCloud2 msg_pcl2;
+  pcl_conversions::toPCL(*msg, msg_pcl2);
+  pcl::PointCloud<pcl::PointNormal>::Ptr msg_cloud(new pcl::PointCloud<pcl::PointNormal>);
+  pcl::fromPCLPointCloud2(msg_pcl2, *msg_cloud);
 
-  // generate normals
+  // generate features
+  Points msg_points;
+  Feature msg_features;
+  generateFeatures(msg_cloud, msg_points, msg_features);
 
   // perform FGR
-  app.ReadFeature("bla");
-  app.NormalizePoints();
+  if (app.GetNumPcl() >= 2) {
+    std::cout << "Updating PCL at index 1" << std::endl;
+    app.LoadFeature(msg_points, msg_features, 1);
+    app.NormalizePoints(1);
+  } else {
+    std::cout << "Uploading PCL to index 1" << std::endl;
+    app.LoadFeature(msg_points, msg_features);
+    app.NormalizePoints();
+  }
   app.AdvancedMatching();
   app.OptimizePairwise(true, max_iter);
-  app.WriteTrans("blaa");
+  Matrix4f TF = app.GetTrans();
+
+  std::cout << "Resulting TF:\n" << TF << std::endl;
 }
 
 void FGR::generateFeatures(const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud,
-                           pcl::PointCloud<pcl::FPFHSignature33>::Ptr cloud_features)
+                           Points &cloud_points, Feature &cloud_features)
 {
   // sub-sample the input cloud
   pcl::PointCloud<pcl::PointNormal>::Ptr cloud_subsample(new pcl::PointCloud<pcl::PointNormal>);
@@ -94,10 +112,22 @@ void FGR::generateFeatures(const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud,
        << " data points (" << pcl::getFieldsList (*cloud_subsample) << ").";
 
   pcl::FPFHEstimationOMP<pcl::PointNormal, pcl::PointNormal, pcl::FPFHSignature33> fest;
+  pcl::PointCloud<pcl::FPFHSignature33>::Ptr pcl_features(new pcl::PointCloud<pcl::FPFHSignature33>());
   fest.setRadiusSearch(0.05);
   fest.setInputCloud(cloud_subsample);
   fest.setInputNormals(cloud_subsample);
-  fest.compute(*cloud_features);
+  fest.compute(*pcl_features);
+
+  int nV = cloud_subsample->size(), nDim = 33;
+  for (int v = 0; v < nV; v++) {
+    const pcl::PointNormal &pt = cloud_subsample->points[v];
+    Vector3f c_pt(pt.x, pt.y, pt.z);
+    cloud_points.push_back(c_pt);
+    const pcl::FPFHSignature33 &feature = pcl_features->points[v];
+    std::vector<float> feat_vec(std::begin(feature.histogram), std::end(feature.histogram));
+    Map<VectorXf> c_feat(&feat_vec[0], nDim);
+    cloud_features.push_back(c_feat);
+  }
 }
 
 int main(int argc, char** argv)
