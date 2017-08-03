@@ -145,14 +145,10 @@ int main(int argc, char** argv)
     return -1;
   }
 
-  std::cout << "Using run-time params:" << std::endl;
-  std::cout << "DIV_FACTOR: " << fgr.div_factor << std::endl;
-  std::cout << "USE_ABSOLUTE_SCALE: " << fgr.use_abs_scale << std::endl;
-  std::cout << "MAX_CORR_DIST: " << fgr.max_corr_dist << std::endl;
-  std::cout << "ITERATION_NUMBER: " << fgr.max_iter << std::endl;
-  std::cout << "TUPLE_SCALE: " << fgr.tuple_scale << std::endl;
-  std::cout << "TUPLE_MAX_CNT: " << fgr.tuple_max_cnt << std::endl;
-  std::cout << "Scene features file: " << fgr.stored_scene_feat << std::endl << std::endl;
+  fgr.app.SetUserParams(fgr.div_factor, fgr.use_abs_scale, fgr.max_corr_dist, fgr.tuple_scale,
+                        fgr.tuple_max_cnt);
+  fgr.app.PrintParams();
+  std::cout << "ITERATION_NUMBER: " << fgr.max_iter << std::endl << std::endl;
 
   fgr.app.ReadFeature(fgr.stored_scene_feat.c_str()); // stored scene features
 

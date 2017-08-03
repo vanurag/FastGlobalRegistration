@@ -274,7 +274,7 @@ void CApp::AdvancedMatching()
 		int rand0, rand1, rand2;
 		int idi0, idi1, idi2;
 		int idj0, idj1, idj2;
-		float scale = TUPLE_SCALE;
+    float scale = tuple_scale_;
 		int ncorr = corres.size();
 		int number_of_trial = ncorr * 100;
 		std::vector<std::pair<int, int>> corres_tuple;
@@ -322,7 +322,7 @@ void CApp::AdvancedMatching()
 				cnt++;
 			}
 
-			if (cnt >= TUPLE_MAX_CNT)
+      if (cnt >= tuple_max_cnt_)
 				break;
 		}
 
@@ -395,7 +395,7 @@ void CApp::NormalizePoints()
 	}
 
 	//// mean of the scale variation
-	if (USE_ABSOLUTE_SCALE) {
+  if (use_abs_scale_) {
 		GlobalScale = 1.0f;
 		StartScale = scale;
 	} else {
@@ -463,7 +463,7 @@ void CApp::NormalizePoints(const int& id)
     scale = max_scale;
 
   //// mean of the scale variation
-  if (USE_ABSOLUTE_SCALE) {
+  if (use_abs_scale_) {
     GlobalScale = 1.0f;
     if (scale > StartScale) StartScale = scale;
   } else {
@@ -514,8 +514,8 @@ double CApp::OptimizePairwise(bool decrease_mu_, int numIter_)
 		// graduated non-convexity.
 		if (decrease_mu_)
 		{
-			if (itr % 4 == 0 && par > MAX_CORR_DIST) {
-				par /= DIV_FACTOR;
+      if (itr % 4 == 0 && par > max_corr_dist_) {
+        par /= div_factor_;
 			}
 		}
 
