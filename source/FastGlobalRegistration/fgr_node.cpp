@@ -1,3 +1,8 @@
+/*
+ * Fast Global registration (FGR) provides initial estimate and then libpointmatcher (LPM) is used to perform ICP based pose refinement
+ */
+
+
 #include <ros/ros.h>
 #include <stdio.h>
 #include "app.h"
@@ -14,7 +19,14 @@
 #include <pcl/features/fpfh_omp.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/conversions.h>
+#include <pcl/visualization/cloud_viewer.h>
+#include <pcl/visualization/pcl_visualizer.h>
 
+// Libpointmatcher
+#include "pointmatcher/PointMatcher.h"
+
+typedef PointMatcher<float> PM;
+typedef PM::DataPoints DP;
 
 class FGR
 {
@@ -24,30 +36,52 @@ class FGR
   ros::Publisher pubPose_;
   geometry_msgs::TransformStamped pose_msg_;  // resulting TF
 
- public:
+  typedef enum {
+    //! Using Libpointmatcher for ICP
+    ICP_LPM,
+    //! ICP_LPM but operates on image hierarchy
+    ICP_LPM_HIERARCHY,
+  } ICPType;
+
+  ICPType icp_type_;
+
+  // Libpointmatcher
+  DP* parent_scene_dp_;
+  PM::ICP icp_;
+
+  // libnabo kd-tree
+  boost::shared_ptr<Nabo::NNSearchF> nns_;
+
+  // PCL Point cloud to LPM Point cloud
+  DP PCLPointCloudToLPMPointCloud(const pcl::PointCloud<pcl::PointNormal>::ConstPtr& pcl_cloud);
+
   // FGR app
-  CApp app;
+  CApp app_;
 
   // params
-  float div_factor;                 // Division factor used for graduated non-convexity
-  bool use_abs_scale;               // Measure distance in absolute scale (1) or in scale relative to the diameter of the model (0)
-  float max_corr_dist;	            // Maximum correspondence distance (also see comment of USE_ABSOLUTE_SCALE)
-  int max_iter;	                    // Maximum number of iteration
-  float tuple_scale; 		            // Similarity measure used for tuples of feature points.
-  int tuple_max_cnt;                // Maximum tuple numbers.
-  std::string stored_scene_feat;    // path to stored features file of the scene
+  float div_factor_;                 // Division factor used for graduated non-convexity
+  bool use_abs_scale_;               // Measure distance in absolute scale (1) or in scale relative to the diameter of the model (0)
+  float max_corr_dist_;	            // Maximum correspondence distance (also see comment of USE_ABSOLUTE_SCALE)
+  int max_iter_;	                    // Maximum number of iteration
+  float tuple_scale_; 		            // Similarity measure used for tuples of feature points.
+  int tuple_max_cnt_;                // Maximum tuple numbers.
+  std::string stored_scene_feat_;    // path to stored features file of the scene
+  std::string stored_scene_mesh_;    // path to stored mesh file of the scene
+  std::string lpm_config_file_;      // configuration file used by LPM
 
 
   bool LoadParameters() {
     bool could_load_params = true;
 
-    could_load_params &= nh_private_.getParam("div_factor", div_factor);
-    could_load_params &= nh_private_.getParam("use_abs_scale", use_abs_scale);
-    could_load_params &= nh_private_.getParam("max_corr_dist", max_corr_dist);
-    could_load_params &= nh_private_.getParam("max_iter", max_iter);
-    could_load_params &= nh_private_.getParam("tuple_scale", tuple_scale);
-    could_load_params &= nh_private_.getParam("tuple_max_cnt", tuple_max_cnt);
-    could_load_params &= nh_private_.getParam("stored_scene_feat", stored_scene_feat);
+    could_load_params &= nh_private_.getParam("div_factor", div_factor_);
+    could_load_params &= nh_private_.getParam("use_abs_scale", use_abs_scale_);
+    could_load_params &= nh_private_.getParam("max_corr_dist", max_corr_dist_);
+    could_load_params &= nh_private_.getParam("max_iter", max_iter_);
+    could_load_params &= nh_private_.getParam("tuple_scale", tuple_scale_);
+    could_load_params &= nh_private_.getParam("tuple_max_cnt", tuple_max_cnt_);
+    could_load_params &= nh_private_.getParam("stored_scene_feat", stored_scene_feat_);
+    could_load_params &= nh_private_.getParam("stored_scene_mesh", stored_scene_mesh_);
+    could_load_params &= nh_private_.getParam("lpm_config_file", lpm_config_file_);
     return could_load_params;
   }
 
@@ -58,19 +92,48 @@ class FGR
   void generateFeatures(const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud,
                         Points &cloud_points, Feature &cloud_features);
 
+  // Use LPM for ICP routine
+  Matrix4f getLPMICPTF(const DP& scene_dp, Matrix4f& init_estimate);
+
   // registration TF publisher
   void publishTF(const Matrix4f& tf);
 
+ public:
   FGR(ros::NodeHandle& nh, ros::NodeHandle& nh_private) {
     nh_ = nh;
     nh_private_ = nh_private;
 
+    if (!LoadParameters()) {
+      std::cout << "failed to load user settings!" << std::endl;
+      exit(1);
+    }
+
+    // APP
+    app_.SetUserParams(div_factor_, use_abs_scale_, max_corr_dist_, tuple_scale_,
+                      tuple_max_cnt_);
+    app_.PrintParams();
+    std::cout << "ITERATION_NUMBER: " << max_iter_ << std::endl << std::endl;
+
+    app_.ReadFeature(stored_scene_feat_.c_str()); // stored scene features
+
+    // ROS
     // mesh subscriber
     subPcl = nh.subscribe<sensor_msgs::PointCloud2> ("/itm/pcl", 1, &FGR::meshCallback, this);
     // TF publisher
     pose_msg_.header.frame_id = "parent_vi_global";
     pose_msg_.child_frame_id = "vi_global";
-    pubPose_ = nh.advertise<geometry_msgs::TransformStamped>("itm/relocalization_pose", 1);
+    pubPose_ = nh.advertise<geometry_msgs::TransformStamped>("itm/fgr_pose", 1);
+
+    // LPM
+    parent_scene_dp_ = new DP(DP::load(stored_scene_mesh_));
+    icp_type_ = ICPType::ICP_LPM; // Change this as per need
+    // load YAML config
+    std::ifstream conf(lpm_config_file_.c_str());
+    if (!conf.good())
+    {
+      std::cerr << "Cannot open ICP config file"; exit(1);
+    }
+    icp_.loadFromYaml(conf);
   };
   ~FGR(void) {};
 };
@@ -84,27 +147,86 @@ void FGR::meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
   pcl::PointCloud<pcl::PointNormal>::Ptr msg_cloud(new pcl::PointCloud<pcl::PointNormal>);
   pcl::fromPCLPointCloud2(msg_pcl2, *msg_cloud);
 
+  // generate LPM point cloud
+  DP msg_dp = PCLPointCloudToLPMPointCloud(msg_cloud);
+
   // generate features
   Points msg_points;
   Feature msg_features;
   generateFeatures(msg_cloud, msg_points, msg_features);
 
   // perform FGR
-  if (app.GetNumPcl() >= 2) {
+  if (app_.GetNumPcl() >= 2) {
     std::cout << "Updating PCL at index 1" << std::endl;
-    app.LoadFeature(msg_points, msg_features, 1);
-    app.NormalizePoints(1);
+    app_.LoadFeature(msg_points, msg_features, 1);
+    app_.NormalizePoints(1);
   } else {
     std::cout << "Uploading PCL to index 1" << std::endl;
-    app.LoadFeature(msg_points, msg_features);
-    app.NormalizePoints();
+    app_.LoadFeature(msg_points, msg_features);
+    app_.NormalizePoints();
   }
-  app.AdvancedMatching();
-  app.OptimizePairwise(true, max_iter);
-  Matrix4f TF = app.GetTrans();
+  app_.AdvancedMatching();
+  app_.OptimizePairwise(true, max_iter_);
+  Matrix4f TF = app_.GetTrans();
 
-  std::cout << "Resulting TF:\n" << TF << std::endl;
+  std::cout << "After FGR transformation:\n" << TF << std::endl;
+
+  // ICP refinement using LPM
+  TF = getLPMICPTF(msg_dp, TF);
+  std::cout << "After ICP refinement transformation:" << std::endl << TF << std::endl;
+
+  // publish resulting TF between current scene and the parent scene
   publishTF(TF);
+}
+
+// Use LPM for ICP routine
+Matrix4f FGR::getLPMICPTF(const DP& scene_dp, Matrix4f& init_estimate) {
+  PM::TransformationParameters scene_tf = PM::TransformationParameters::Identity(4, 4);
+  for (int row = 0; row < 3; ++row) {
+    for (int col = 0; col < 4; ++col) {
+      scene_tf(row, col) = init_estimate(row, col);
+    }
+  }
+//  PM::TransformationParameters parent_scene_tf = PM::TransformationParameters::Identity(4, 4);
+
+  PM::Transformation* rigidTrans;
+  rigidTrans = PM::get().REG(Transformation).create("RigidTransformation");
+
+  // TF sanity check
+  if (!rigidTrans->checkParameters(scene_tf)) {
+    std::cerr << std::endl
+       << "Provided init_estimate is not rigid, identity will be used"
+       << std::endl;
+    scene_tf = PM::TransformationParameters::Identity(4, 4);
+  }
+
+  // initialize current scan by best pose estimate from previous run
+  // Also transform scene to global ref frame
+  const DP transformed_scene_dp = rigidTrans->compute(scene_dp, scene_tf);
+
+  // Compute the transformation to express scene in parent scene ref
+  PM::TransformationParameters T = icp_(transformed_scene_dp, *parent_scene_dp_);
+  std::cout << "LPM match ratio: " << icp_.errorMinimizer->getWeightedPointUsedRatio() << std::endl;
+//  std::cout << "ICP transformation:" << std::endl << T << std::endl;
+
+  // Transform data to express it in ref
+  DP data_out(transformed_scene_dp);
+  icp_.transformations.apply(data_out, T);
+
+  // Safe files to see the results
+//  GlobalScene.save(LPMBaseDir_ + "test_ref.vtk")
+//  GlobalScan.save(LPMBaseDir_ + "test_data_in.vtk");
+//  data_out.save(LPMBaseDir_ + "test_data_out.vtk");
+
+  // Refined scene TF
+  PM::TransformationParameters refined_scene_tf = scene_tf * T;
+  Matrix4f refined_scene_pose;
+  for (int row = 0; row < 3; ++row) {
+    for (int col = 0; col < 4; ++col) {
+      refined_scene_pose(row, col) = refined_scene_tf(row, col);
+    }
+  }
+  return refined_scene_pose;
 }
 
 void FGR::publishTF(const Matrix4f& tf) {
@@ -164,6 +286,27 @@ void FGR::generateFeatures(const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud,
   }
 }
 
+// PCL Point cloud to LPM Point cloud
+DP FGR::PCLPointCloudToLPMPointCloud(const pcl::PointCloud<pcl::PointNormal>::ConstPtr& pcl_cloud) {
+
+  DP::Labels feature_labels;
+  feature_labels.push_back(DP::Label("x"));
+  feature_labels.push_back(DP::Label("y"));
+  feature_labels.push_back(DP::Label("z"));
+
+  PM::Matrix features(4, pcl_cloud->size());
+  for (int i = 0; i < pcl_cloud->size(); ++i) {
+    features(0, i) = pcl_cloud->points[i].x;
+    features(1, i) = pcl_cloud->points[i].y;
+    features(2, i) = pcl_cloud->points[i].z;
+    features(3, i) = 1.0;
+    // check normal
+//    std::cout << "normal: " << i << " " << pcl_cloud->points[i].normal_x << " " << pcl_cloud->points[i].normal_y << " " << pcl_cloud->points[i].normal_z << std::endl;
+  }
+
+  return DP(features, feature_labels);
+}
+
 int main(int argc, char** argv)
 {
   ros::Time::init();
@@ -174,17 +317,6 @@ int main(int argc, char** argv)
 
   // FGR
   FGR fgr(nh, nh_private);
-  if (!fgr.LoadParameters()) {
-    std::cout << "failed to load user settings!" << std::endl;
-    return -1;
-  }
-
-  fgr.app.SetUserParams(fgr.div_factor, fgr.use_abs_scale, fgr.max_corr_dist, fgr.tuple_scale,
-                        fgr.tuple_max_cnt);
-  fgr.app.PrintParams();
-  std::cout << "ITERATION_NUMBER: " << fgr.max_iter << std::endl << std::endl;
-
-  fgr.app.ReadFeature(fgr.stored_scene_feat.c_str()); // stored scene features
 
   ros::spin();
 

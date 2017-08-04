@@ -1,4 +1,6 @@
-stored_scene_feat : /home/anurag/kinfu_ws/src/FastGlobalRegistration/dataset/infinitam_relocalization/wall/new/wall_mesh_with_normals.bin
+stored_scene_feat : /home/anurag/kinfu_ws/src/FastGlobalRegistration/dataset/infinitam_relocalization/wall/new/mesh.bin
+stored_scene_mesh : /home/anurag/kinfu_ws/src/FastGlobalRegistration/dataset/infinitam_relocalization/wall/new/mesh.ply
+lpm_config_file : /home/anurag/kinfu_ws/src/InfiniTAM/InfiniTAM/Files/Relocalization_configs/icp_cfg_point-plane.yaml
 
 div_factor : 1.4
 use_abs_scale : true

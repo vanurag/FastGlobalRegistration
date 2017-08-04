@@ -24,6 +24,13 @@ include_directories(
 	${FastGlobalRegistration_SOURCE_DIR}/FastGlobalRegistration
 	)
 
+#----------------------------
+# DEPENDENCY: libpointmatcher
+#----------------------------
+find_package(libpointmatcher REQUIRED)
+include_directories(${libpointmatcher_INCLUDE_DIRS})
+message("-- libpointmatcher found, version ${libpointmatcher_VERSION}")
+
 #--------------------
 # DEPENDENCY: PCL
 #--------------------
