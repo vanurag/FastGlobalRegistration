@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "app.h"
 #include <sensor_msgs/PointCloud2.h>
+#include <geometry_msgs/TransformStamped.h>
 
 // PCL
 #include <pcl_conversions/pcl_conversions.h>
@@ -20,6 +21,8 @@ class FGR
  private:
   ros::NodeHandle nh_, nh_private_;
   ros::Subscriber subPcl;
+  ros::Publisher pubPose_;
+  geometry_msgs::TransformStamped pose_msg_;  // resulting TF
 
  public:
   // FGR app
@@ -55,11 +58,19 @@ class FGR
   void generateFeatures(const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud,
                         Points &cloud_points, Feature &cloud_features);
 
+  // registration TF publisher
+  void publishTF(const Matrix4f& tf);
+
   FGR(ros::NodeHandle& nh, ros::NodeHandle& nh_private) {
     nh_ = nh;
     nh_private_ = nh_private;
 
+    // mesh subscriber
     subPcl = nh.subscribe<sensor_msgs::PointCloud2> ("/itm/pcl", 1, &FGR::meshCallback, this);
+    // TF publisher
+    pose_msg_.header.frame_id = "parent_vi_global";
+    pose_msg_.child_frame_id = "vi_global";
+    pubPose_ = nh.advertise<geometry_msgs::TransformStamped>("itm/relocalization_pose", 1);
   };
   ~FGR(void) {};
 };
@@ -93,6 +104,29 @@ void FGR::meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
   Matrix4f TF = app.GetTrans();
 
   std::cout << "Resulting TF:\n" << TF << std::endl;
+  publishTF(TF);
+}
+
+void FGR::publishTF(const Matrix4f& tf) {
+//  std::cout << "pose: " << tf << std::endl;
+  pose_msg_.header.stamp = ros::Time::now();
+
+  Matrix3f pose_rot = tf.block<3,3>(0,0);
+  Vector3f pose_trans = tf.block<3,1>(0,3);
+//  std::cout << "pose rot: " << pose_rot << std::endl;
+//  std::cout << "pose trans: " << pose_trans << std::endl;
+
+  pose_msg_.transform.translation.x = pose_trans[0];
+  pose_msg_.transform.translation.y = pose_trans[1];
+  pose_msg_.transform.translation.z = pose_trans[2];
+
+  Eigen::Quaternionf pose_q(pose_rot);
+  pose_msg_.transform.rotation.x = pose_q.x();
+  pose_msg_.transform.rotation.y = pose_q.y();
+  pose_msg_.transform.rotation.z = pose_q.z();
+  pose_msg_.transform.rotation.w = pose_q.w();
+
+  pubPose_.publish(pose_msg_);
 }
 
 void FGR::generateFeatures(const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud,
