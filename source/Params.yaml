@@ -1,6 +1,6 @@
 stored_scene_feat : /home/anurag/kinfu_ws/src/FastGlobalRegistration/dataset/infinitam_relocalization/wall/new/mesh.bin
 stored_scene_mesh : /home/anurag/kinfu_ws/src/FastGlobalRegistration/dataset/infinitam_relocalization/wall/new/mesh.ply
-lpm_config_file : /home/anurag/kinfu_ws/src/InfiniTAM/InfiniTAM/Files/Relocalization_configs/icp_cfg_point-plane.yaml
+lpm_config_file : /home/anurag/kinfu_ws/src/FastGlobalRegistration/source/Relocalization_configs/icp_cfg_point-plane.yaml
 
 div_factor : 1.4
 use_abs_scale : true
@@ -8,3 +8,4 @@ max_corr_dist : 0.025
 max_iter : 64
 tuple_scale : 0.95 
 tuple_max_cnt : 1000
+do_geom_check : true

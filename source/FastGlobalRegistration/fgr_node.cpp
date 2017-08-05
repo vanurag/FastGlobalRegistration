@@ -68,6 +68,7 @@ class FGR
   std::string stored_scene_feat_;    // path to stored features file of the scene
   std::string stored_scene_mesh_;    // path to stored mesh file of the scene
   std::string lpm_config_file_;      // configuration file used by LPM
+  bool do_geom_check_;               // whether or not to perform icp based refinement
 
 
   bool LoadParameters() {
@@ -82,6 +83,7 @@ class FGR
     could_load_params &= nh_private_.getParam("stored_scene_feat", stored_scene_feat_);
     could_load_params &= nh_private_.getParam("stored_scene_mesh", stored_scene_mesh_);
     could_load_params &= nh_private_.getParam("lpm_config_file", lpm_config_file_);
+    could_load_params &= nh_private_.getParam("do_geom_check", do_geom_check_);
     return could_load_params;
   }
 
@@ -172,8 +174,10 @@ void FGR::meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
   std::cout << "After FGR transformation:\n" << TF << std::endl;
 
   // ICP refinement using LPM
-  TF = getLPMICPTF(msg_dp, TF);
-  std::cout << "After ICP refinement transformation:" << std::endl << TF << std::endl;
+  if (do_geom_check_) {
+    TF = getLPMICPTF(msg_dp, TF);
+    std::cout << "After ICP refinement transformation:" << std::endl << TF << std::endl;
+  }
 
   // publish resulting TF between current scene and the parent scene
   publishTF(TF);
@@ -221,6 +225,7 @@ Matrix4f FGR::getLPMICPTF(const DP& scene_dp, Matrix4f& init_estimate) {
   // Refined scene TF
   PM::TransformationParameters refined_scene_tf = scene_tf * T;
   Matrix4f refined_scene_pose;
+  refined_scene_pose.setIdentity();
   for (int row = 0; row < 3; ++row) {
     for (int col = 0; col < 4; ++col) {
       refined_scene_pose(row, col) = refined_scene_tf(row, col);
