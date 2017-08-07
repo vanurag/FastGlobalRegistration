@@ -1,3 +1,6 @@
 build/
 build-xcode/
 build-vs/
+*.mexa64
+*.*~
+*.txt.user

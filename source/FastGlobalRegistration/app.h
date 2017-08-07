@@ -32,14 +32,6 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-#define DIV_FACTOR			1.4		// Division factor used for graduated non-convexity
-#define USE_ABSOLUTE_SCALE	0		// Measure distance in absolute scale (1) or in scale relative to the diameter of the model (0)
-#define MAX_CORR_DIST		0.025	// Maximum correspondence distance (also see comment of USE_ABSOLUTE_SCALE)
-#define ITERATION_NUMBER	64		// Maximum number of iteration
-#define TUPLE_SCALE			0.95	// Similarity measure used for tuples of feature points.
-#define TUPLE_MAX_CNT		1000	// Maximum tuple numbers.
-
-
 using namespace Eigen;
 using namespace std;
 
@@ -48,13 +40,41 @@ typedef vector<VectorXf> Feature;
 
 class CApp{
 public:
-    void LoadFeature(const Points& pts, const Feature& feat);
+  int GetNumPcl();
+  void LoadFeature(const Points& pts, const Feature& feat);
+  void LoadFeature(const Points& pts, const Feature& feat, const int& id);
 	void ReadFeature(const char* filepath);
+  void ReadFeature(const char* filepath, const int& id);
 	void NormalizePoints();
+  void NormalizePoints(const int& id);
 	void AdvancedMatching();
 	void WriteTrans(const char* filepath);
-    Matrix4f GetTrans();
+  Matrix4f GetTrans();
 	double OptimizePairwise(bool decrease_mu_, int numIter_);
+  void SetUserParams(const float& div_factor, const bool& use_abs_scale, const float& max_corr_dist,
+                     const float& tuple_scale, const int& tuple_max_cnt) {
+    div_factor_ = div_factor;
+    use_abs_scale_ = use_abs_scale;
+    max_corr_dist_ = max_corr_dist;
+    tuple_scale_ = tuple_scale;
+    tuple_max_cnt_ = tuple_max_cnt;
+  }
+  void PrintParams() {
+    std::cout << "Using run-time params:" << std::endl;
+    std::cout << "DIV_FACTOR: " << div_factor_ << std::endl;
+    std::cout << "USE_ABSOLUTE_SCALE: " << use_abs_scale_ << std::endl;
+    std::cout << "MAX_CORR_DIST: " << max_corr_dist_ << std::endl;
+    std::cout << "TUPLE_SCALE: " << tuple_scale_ << std::endl;
+    std::cout << "TUPLE_MAX_CNT: " << tuple_max_cnt_ << std::endl;
+  }
+
+  CApp() {
+    div_factor_ = 1.4;
+    use_abs_scale_ = true;
+    max_corr_dist_ = 0.025;
+    tuple_scale_ = 0.95;
+    tuple_max_cnt_ = 1000;
+  }
 
 private:
 	// containers
@@ -62,6 +82,13 @@ private:
 	vector<Feature> features_;
 	Matrix4f TransOutput_;
 	vector<pair<int, int>> corres_;
+
+  // user params
+  float div_factor_;                  // Division factor used for graduated non-convexity
+  bool use_abs_scale_;                // Measure distance in absolute scale (1) or in scale relative to the diameter of the model (0)
+  float max_corr_dist_; 	            // Maximum correspondence distance (also see comment of USE_ABSOLUTE_SCALE)
+  float tuple_scale_; 		            // Similarity measure used for tuples of feature points.
+  int tuple_max_cnt_;                 // Maximum tuple numbers.
 
 	// for normalization
 	Points Means;

@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.0.0)
 
-project(FastGlobalRegistration)
+project(fast_global_registration)
+
+find_package(catkin REQUIRED COMPONENTS 
+	           roscpp 
+	           rosbag
+	           roslaunch
+	           std_msgs
+	           cv_bridge
+	           image_transport)
 
 set(FastGlobalRegistration_VERSION_MAJOR "1")
 set(FastGlobalRegistration_VERSION_MINOR "0")
@@ -15,6 +23,29 @@ include_directories(
 	${FastGlobalRegistration_SOURCE_DIR}/External/flann
 	${FastGlobalRegistration_SOURCE_DIR}/FastGlobalRegistration
 	)
+
+#----------------------------
+# DEPENDENCY: libpointmatcher
+#----------------------------
+find_package(libpointmatcher REQUIRED)
+include_directories(${libpointmatcher_INCLUDE_DIRS})
+message("-- libpointmatcher found, version ${libpointmatcher_VERSION}")
+
+#--------------------
+# DEPENDENCY: PCL
+#--------------------
+find_package(PCL 1.8 REQUIRED)
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+message("-- PCL found, version ${PCL_VERSION}")
+
+# ROS
+include_directories(${catkin_INCLUDE_DIRS})
+
+catkin_package(
+	INCLUDE_DIRS ${catkin_INCLUDE_DIRS}
+)
 
 # default built type
 if(NOT CMAKE_BUILD_TYPE)
@@ -52,7 +83,7 @@ elseif(UNIX)
 	add_compile_options(-Wno-deprecated-declarations)
 	add_compile_options(-Wno-unused-result)
 	# enable c++11
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
 endif(WIN32)
 
 add_subdirectory(FastGlobalRegistration)

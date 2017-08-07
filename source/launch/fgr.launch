@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="ISO-8859-15"?>
+<launch>
+
+   <!-- Run FastGlobalRegistrationNode -->
+   <node  name="fgr_node" pkg="fast_global_registration" 
+   type="FastGlobalRegistrationNode" clear_params="true" output="screen" 
+   args="--v=2 --minloglevel=0 --alsologtostderr=true">     
+          <rosparam file="$(find fast_global_registration)/Params.yaml"/>
+   </node>
+    
+</launch>
