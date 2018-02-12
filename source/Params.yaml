@@ -1,5 +1,5 @@
-stored_scene_feat : /home/anurag/kinfu_ws/src/FastGlobalRegistration/dataset/infinitam_relocalization/wall/new/mesh.bin
-stored_scene_mesh : /home/anurag/kinfu_ws/src/FastGlobalRegistration/dataset/infinitam_relocalization/wall/new/mesh.ply
+stored_scene_feat : /media/anurag/DATA-EXT/indoor_data/DJI/mesh.bin
+stored_scene_mesh : /media/anurag/DATA-EXT/indoor_data/DJI/mesh.ply
 lpm_config_file : /home/anurag/kinfu_ws/src/FastGlobalRegistration/source/Relocalization_configs/icp_cfg_point-plane.yaml
 
 div_factor : 1.4

@@ -8,6 +8,8 @@
 #include "app.h"
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <nabo/nabo.h>
+#include <rviz_talking_view_controller/CLIEngine.h>
 
 // PCL
 #include <pcl_conversions/pcl_conversions.h>
@@ -32,9 +34,12 @@ class FGR
 {
  private:
   ros::NodeHandle nh_, nh_private_;
-  ros::Subscriber subPcl;
+  ros::Subscriber subPcl, subCLI;
   ros::Publisher pubPose_;
   geometry_msgs::TransformStamped pose_msg_;  // resulting TF
+  rviz_talking_view_controller::CLIEngine cli_config_msg_;
+
+  bool do_relocalize_;
 
   typedef enum {
     //! Using Libpointmatcher for ICP
@@ -90,6 +95,9 @@ class FGR
   // PCL pointcloud callback
   void meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
 
+  // CLI config callbacl
+  void cliConfigCallback(const rviz_talking_view_controller::CLIEngine::ConstPtr& msg);
+
   // generate features for PCL point cloud
   void generateFeatures(const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud,
                         Points &cloud_points, Feature &cloud_features);
@@ -104,6 +112,9 @@ class FGR
   FGR(ros::NodeHandle& nh, ros::NodeHandle& nh_private) {
     nh_ = nh;
     nh_private_ = nh_private;
+
+    // by default not enabling. Wait for CLI config msg.
+    do_relocalize_ = false;
 
     if (!LoadParameters()) {
       std::cout << "failed to load user settings!" << std::endl;
@@ -121,6 +132,8 @@ class FGR
     // ROS
     // mesh subscriber
     subPcl = nh.subscribe<sensor_msgs::PointCloud2> ("/itm/pcl", 1, &FGR::meshCallback, this);
+    // CLI config subscriber
+    subCLI = nh.subscribe<rviz_talking_view_controller::CLIEngine> ("/itm/cli/config", 1, &FGR::cliConfigCallback, this);
     // TF publisher
     pose_msg_.header.frame_id = "parent_vi_global";
     pose_msg_.child_frame_id = "vi_global";
@@ -140,9 +153,16 @@ class FGR
   ~FGR(void) {};
 };
 
+void FGR::cliConfigCallback(const rviz_talking_view_controller::CLIEngine::ConstPtr& msg)
+{
+  cli_config_msg_ = *msg;
+  if (cli_config_msg_.relocalize) do_relocalize_ = true;
+}
+
 void FGR::meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
 {
   std::cout << "Got a PCL msg!!" << std::endl;
+  if (!do_relocalize_) return;
   // generate pcl pointcloud
   pcl::PCLPointCloud2 msg_pcl2;
   pcl_conversions::toPCL(*msg, msg_pcl2);
@@ -181,6 +201,8 @@ void FGR::meshCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
 
   // publish resulting TF between current scene and the parent scene
   publishTF(TF);
+
+  do_relocalize_ = false;
 }
 
 // Use LPM for ICP routine

@@ -12,6 +12,7 @@
 
   <depend>roscpp</depend>
   <depend>rospy</depend>
+  <depend>rviz_talking_view_controller</depend>
 
   <export>
   </export>

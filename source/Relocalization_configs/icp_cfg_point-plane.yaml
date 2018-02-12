@@ -6,7 +6,7 @@ readingDataPointsFilters:
 referenceDataPointsFilters:
   - RemoveNaNDataPointsFilter
   - RandomSamplingDataPointsFilter:
-      prob: 0.02
+      prob: 0.1
   - SamplingSurfaceNormalDataPointsFilter:
       knn: 10
 
