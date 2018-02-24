@@ -9,11 +9,12 @@
 #include <pcl/impl/point_types.hpp>
 #include <pcl/features/fpfh_omp.h>
 #include <pcl/filters/voxel_grid.h>
+#include <stdlib.h>
 
 int main(int argc, char *argv[])
 {
-  if (argc < 3) {
-    std::cout << "Usage: ./FeatureGenerator <source: PLY file> <dest: Feature file>" << std::endl;
+  if (argc < 4) {
+    std::cout << "Usage: ./FeatureGenerator <source: PLY file> <dest: Feature file> <leaf_size>" << std::endl;
     exit(1);
   }
 
@@ -31,7 +32,7 @@ int main(int argc, char *argv[])
   // Create the filtering object
   pcl::VoxelGrid<pcl::PointNormal> sor;
   sor.setInputCloud(object);
-  sor.setLeafSize(0.01f, 0.01f, 0.01f);
+  sor.setLeafSize(atof(argv[3]), atof(argv[3]), atof(argv[3]));
   sor.filter(*object_subsample);
   std::cerr << "PointCloud after filtering: " << object_subsample->width * object_subsample->height
        << " data points (" << pcl::getFieldsList (*object_subsample) << ").";

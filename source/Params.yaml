@@ -1,7 +1,3 @@
-stored_scene_feat : /media/anurag/DATA-EXT/indoor_data/DJI/mesh.bin
-stored_scene_mesh : /media/anurag/DATA-EXT/indoor_data/DJI/mesh.ply
-lpm_config_file : /home/anurag/kinfu_ws/src/FastGlobalRegistration/source/Relocalization_configs/icp_cfg_point-plane.yaml
-
 div_factor : 1.4
 use_abs_scale : true
 max_corr_dist : 0.025
