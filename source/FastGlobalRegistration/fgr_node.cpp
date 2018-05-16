@@ -27,6 +27,9 @@
 // Libpointmatcher
 #include "pointmatcher/PointMatcher.h"
 
+// Libnabo
+#include "nabo/nabo.h"
+
 typedef PointMatcher<float> PM;
 typedef PM::DataPoints DP;
 

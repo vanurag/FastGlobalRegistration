@@ -40,6 +40,16 @@ link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 message("-- PCL found, version ${PCL_VERSION}")
 
+#--------------------
+# DEPENDENCY: nabo
+#--------------------
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${LIBNABO_INSTALL_DIR}/share/libnabo/cmake/")
+find_package(libnabo REQUIRED)
+#include(libnaboConfig)
+include_directories(${libnabo_INCLUDE_DIRS})
+set(EXTERNAL_LIBS ${EXTERNAL_LIBS} ${libnabo_LIBRARIES})
+message("-- libnabo found, version ${libnabo_VERSION}")
+
 # ROS
 include_directories(${catkin_INCLUDE_DIRS})
 
